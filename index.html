@@ -154,7 +154,7 @@ async function fetchMarketDetails(conditionIds) {
   for (let i = 0; i < conditionIds.length; i += batchSize) {
     const batch = conditionIds.slice(i, i + batchSize);
     try {
-      const url = 'https://gamma-api.polymarket.com/markets?conditionIds=' + batch.join(',') + '&limit=50';
+      const url = 'https://gamma-api.polymarket.com/markets?conditionIds=' + batch.join(',') + '&active=true&closed=false&limit=50';
       const data = await apiFetch(url);
       const arr = Array.isArray(data) ? data : (data.markets || []);
       for (const m of arr) {
