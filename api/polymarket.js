@@ -28,7 +28,6 @@ export default async function handler(req, res) {
     });
 
     const text = await upstream.text();
-
     let data;
     try {
       data = JSON.parse(text);
