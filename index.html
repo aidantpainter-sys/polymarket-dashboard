@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polymarket Smart Money</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff; --bg2: #f5f5f3; --bg3: #ebebea;
+  --text: #1a1a18; --text2: #6b6b68; --text3: #9e9e9b;
+  --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.2);
+  --radius: 8px; --radius-lg: 12px;
+  --green: #0F6E56; --green-bg: #E1F5EE;
+  --red: #993C1D; --red-bg: #FAECE7;
+  --green-bar: #1D9E75; --red-bar: #D85A30;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1a; --bg2: #252523; --bg3: #2e2e2c;
+    --text: #e8e8e5; --text2: #9e9e9b; --text3: #6b6b68;
+    --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+    --green: #5DCAA5; --green-bg: #04342C;
+    --red: #F0997B; --red-bg: #4A1B0C;
+  }
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; padding: 1.5rem; }
+.shell { max-width: 720px; margin: 0 auto; }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.header h1 { font-size: 18px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+.metric { background: var(--bg2); border-radius: var(--radius); padding: 1rem; }
+.metric-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+.metric-value { font-size: 22px; font-weight: 500; }
+.tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+.tab { padding: 6px 16px; font-size: 13px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: transparent; cursor: pointer; color: var(--text2); }
+.tab.active { background: var(--bg2); color: var(--text); font-weight: 500; }
+.section-title { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+.card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 8px; }
+.consensus-card { border-left: 3px solid var(--green-bar); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+.consensus-card.bearish { border-left-color: var(--red-bar); }
+.market-name { font-size: 14px; font-weight: 500; margin-bottom: 6px; line-height: 1.4; }
+.market-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); flex-wrap: wrap; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+.badge-yes { background: var(--green-bg); color: var(--green); }
+.badge-no { background: var(--red-bg); color: var(--red); }
+.badge-count { background: var(--bg2); color: var(--text2); border: 0.5px solid var(--border); }
+.price-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--text2); }
+.bar-track { flex: 1; height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; background: var(--green-bar); }
+.bar-fill.no { background: var(--red-bar); }
+.bar-label { font-size: 12px; font-weight: 500; min-width: 36px; text-align: right; color: var(--text); }
+.traders-wrap { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 0.25rem 1.25rem; }
+.trader-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.trader-row:last-child { border-bottom: none; }
+.rank { font-size: 12px; color: var(--text2); min-width: 20px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: #E6F1FB; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #185FA5; flex-shrink: 0; }
+.trader-name { flex: 1; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trader-pnl { font-size: 13px; font-weight: 500; color: var(--green); }
+.trader-vol { font-size: 11px; color: var(--text2); }
+.loading { text-align: center; padding: 3rem 1rem; }
+.spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--text2); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-box { background: var(--red-bg); border: 0.5px solid var(--red-bar); border-radius: var(--radius); padding: 1rem; font-size: 13px; color: var(--red); line-height: 1.6; }
+button.refresh { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 5px 12px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: transparent; cursor: pointer; color: var(--text2); }
+button.refresh:hover { background: var(--bg2); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="header">
+    <h1><i class="ti ti-trending-up"></i> Polymarket smart money</h1>
+    <button class="refresh" onclick="loadAll()"><i class="ti ti-refresh"></i> Refresh</button>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Traders tracked</div><div class="metric-value" id="m-traders">—</div></div>
+    <div class="metric"><div class="metric-label">Consensus markets</div><div class="metric-value" id="m-consensus">—</div></div>
+    <div class="metric"><div class="metric-label">Last updated</div><div class="metric-value" id="m-updated" style="font-size:13px;padding-top:6px;">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('consensus',this)">Consensus trades</button>
+    <button class="tab" onclick="switchTab('traders',this)">Top traders</button>
+  </div>
+
+  <div id="view-consensus">
+    <div class="section-title">Markets where 3+ top traders agree</div>
+    <div id="consensus-list"><div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Loading…</div></div></div>
+  </div>
+
+  <div id="view-traders" style="display:none;">
+    <div class="section-title">Top 20 by profit (30 days)</div>
+    <div class="traders-wrap" id="traders-list"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<script>
+const API = '/api/polymarket?endpoint=';
+let state = { traders: [], positions: {} };
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-consensus').style.display = name === 'consensus' ? 'block' : 'none';
+  document.getElementById('view-traders').style.display = name === 'traders' ? 'block' : 'none';
+}
+
+function fmt(n) {
+  if (Math.abs(n) >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1000) return '$' + (n/1000).toFixed(0) + 'K';
+  return '$' + Math.round(n);
+}
+
+function initials(name) {
+  return (name || '?').split(/[\s_]/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '??';
+}
+
+async function apiFetch(url) {
+  const r = await fetch(API + encodeURIComponent(url));
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function loadAll() {
+  document.getElementById('m-traders').textContent = '…';
+  document.getElementById('m-consensus').textContent = '…';
+  document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching leaderboard…</div></div>';
+  document.getElementById('traders-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  state = { traders: [], positions: {} };
+
+  try {
+    const lb = await apiFetch('https://data-api.polymarket.com/leaderboard?window=1m&limit=20');
+    state.traders = Array.isArray(lb) ? lb : (lb.data || lb.results || []);
+    document.getElementById('m-traders').textContent = state.traders.length;
+    renderTraders();
+
+    document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching positions…</div></div>';
+
+    const wallets = state.traders.map(t => t.proxyWallet || t.address || t.user).filter(Boolean);
+    await Promise.all(wallets.map(async w => {
+      try {
+        const d = await apiFetch(`https://data-api.polymarket.com/positions?user=${w}&sizeThreshold=5&limit=50`);
+        state.positions[w] = Array.isArray(d) ? d : [];
+      } catch { state.positions[w] = []; }
+    }));
+
+    renderConsensus(buildConsensus());
+    document.getElementById('m-updated').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  } catch (err) {
+    const msg = `<div class="error-box"><strong>Could not load data:</strong> ${err.message}</div>`;
+    document.getElementById('consensus-list').innerHTML = msg;
+    document.getElementById('traders-list').innerHTML = msg;
+    document.getElementById('m-traders').textContent = '—';
+    document.getElementById('m-consensus').textContent = '—';
+  }
+}
+
+function renderTraders() {
+  const el = document.getElementById('traders-list');
+  if (!state.traders.length) { el.innerHTML = '<div style="font-size:13px;padding:1rem 0;color:#9e9e9b;">No data.</div>'; return; }
+  el.innerHTML = state.traders.map((t, i) => {
+    const name = t.name || t.pseudonym || (t.proxyWallet || '').slice(0,8) + '…';
+    const pnl = t.pnl ?? t.profit ?? 0;
+    const vol = t.volume ?? 0;
+    return `<div class="trader-row">
+      <span class="rank">${i+1}</span>
+      <div class="avatar">${initials(name)}</div>
+      <span class="trader-name">${name}</span>
+      <div style="text-align:right;">
+        <div class="trader-pnl">${pnl >= 0 ? '+' : ''}${fmt(pnl)}</div>
+        <div class="trader-vol">${fmt(vol)} vol</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function buildConsensus() {
+  const map = {};
+  for (const [, positions] of Object.entries(state.positions)) {
+    for (const pos of positions) {
+      const cid = pos.conditionId || pos.market;
+      if (!cid) continue;
+      if (!map[cid]) map[cid] = { yes: 0, no: 0, price: pos.curPrice ?? pos.price ?? 0.5, title: pos.title || pos.question || cid };
+      const side = (pos.outcome || '').toLowerCase();
+      if (side === 'yes') map[cid].yes++;
+      else if (side === 'no') map[cid].no++;
+    }
+  }
+  return Object.entries(map)
+    .map(([cid, d]) => ({ ...d, cid }))
+    .filter(m => m.yes >= 3 || m.no >= 3)
+    .sort((a, b) => Math.max(b.yes, b.no) - Math.max(a.yes, a.no));
+}
+
+function renderConsensus(items) {
+  document.getElementById('m-consensus').textContent = items.length;
+  const el = document.getElementById('consensus-list');
+  if (!items.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#9e9e9b;padding:1rem 0;">No consensus found — top traders may be spread across many markets right now.</div>';
+    return;
+  }
+  el.innerHTML = items.map(m => {
+    const isBull = m.yes >= m.no;
+    const count = isBull ? m.yes : m.no;
+    const pct = Math.round((m.price || 0.5) * 100);
+    return `<div class="card consensus-card ${isBull ? '' : 'bearish'}">
+      <div class="market-name">${m.title}</div>
+      <div class="market-meta">
+        <span class="badge ${isBull ? 'badge-yes' : 'badge-no'}">${isBull ? 'YES' : 'NO'}</span>
+        <span class="badge badge-count"><i class="ti ti-users" style="font-size:11px;vertical-align:-1px;"></i> ${count} traders agree</span>
+        <span style="margin-left:auto;">${pct}¢</span>
+      </div>
+      <div class="price-bar">
+        <span>YES</span>
+        <div class="bar-track"><div class="bar-fill ${isBull ? '' : 'no'}" style="width:${pct}%"></div></div>
+        <span class="bar-label">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+loadAll();
+</script>
+</body>
+</html>
