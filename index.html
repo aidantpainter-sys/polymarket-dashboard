@@ -99,13 +99,13 @@ button.refresh:hover { background: var(--bg2); }
   </div>
 
   <div id="view-consensus">
-    <div class="section-title">Open markets where 3+ top traders agree</div>
+    <div class="section-title">Open markets where 2+ all-time top traders agree</div>
     <div id="status-msg" class="status-msg"></div>
     <div id="consensus-list"><div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Loading…</div></div></div>
   </div>
 
   <div id="view-traders" style="display:none;">
-    <div class="section-title">Top 20 by profit (30 days)</div>
+    <div class="section-title">Top 20 traders of all time by profit</div>
     <div class="traders-wrap" id="traders-list"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 </div>
@@ -128,7 +128,7 @@ function fmt(n) {
 }
 
 function initials(name) {
-  return (name || '?').split(/[\s_]/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '??';
+  return (name || '?').split(/[\s_]/).map(function(w) { return w[0] || ''; }).join('').slice(0,2).toUpperCase() || '??';
 }
 
 function closesLabel(dateStr) {
@@ -167,13 +167,15 @@ async function fetchMarketDetails(conditionIds) {
 
 function buildConsensus() {
   const map = {};
-  for (const [, positions] of Object.entries(state.positions)) {
-    for (const pos of positions) {
+  for (const addr in state.positions) {
+    const positions = state.positions[addr];
+    for (let i = 0; i < positions.length; i++) {
+      const pos = positions[i];
       const cid = pos.conditionId || pos.market;
       if (!cid) continue;
       if (!map[cid]) map[cid] = {
         yes: 0, no: 0,
-        entryPrice: pos.curPrice ?? pos.price ?? 0.5,
+        entryPrice: pos.curPrice != null ? pos.curPrice : (pos.price != null ? pos.price : 0.5),
         title: pos.title || pos.question || cid,
         slug: pos.slug || null,
       };
@@ -182,19 +184,22 @@ function buildConsensus() {
       else if (side === 'no') map[cid].no++;
     }
   }
-  return Object.entries(map)
-    .map(([cid, d]) => ({ ...d, cid }))
-    .filter(m => m.yes >= 3 || m.no >= 3)
-    .sort((a, b) => Math.max(b.yes, b.no) - Math.max(a.yes, a.no));
+  return Object.keys(map).map(function(cid) {
+    return Object.assign({ cid: cid }, map[cid]);
+  }).filter(function(m) {
+    return m.yes >= 2 || m.no >= 2;
+  }).sort(function(a, b) {
+    return Math.max(b.yes, b.no) - Math.max(a.yes, a.no);
+  });
 }
 
 function renderTraders() {
   const el = document.getElementById('traders-list');
   if (!state.traders.length) { el.innerHTML = '<div style="font-size:13px;padding:1rem 0;color:#9e9e9b;">No data.</div>'; return; }
-  el.innerHTML = state.traders.map((t, i) => {
+  el.innerHTML = state.traders.map(function(t, i) {
     const name = t.name || t.pseudonym || t.userName || (t.proxyWallet || '').slice(0,8) + '…';
-    const pnl = t.pnl ?? t.profit ?? 0;
-    const vol = t.vol ?? t.volume ?? 0;
+    const pnl = t.pnl != null ? t.pnl : (t.profit != null ? t.profit : 0);
+    const vol = t.vol != null ? t.vol : (t.volume != null ? t.volume : 0);
     return '<div class="trader-row">'
       + '<span class="rank">' + (i+1) + '</span>'
       + '<div class="avatar">' + initials(name) + '</div>'
@@ -265,7 +270,7 @@ async function loadAll() {
   state = { traders: [], positions: {} };
 
   try {
-    const lb = await apiFetch('https://data-api.polymarket.com/v1/leaderboard?limit=20');
+    const lb = await apiFetch('https://data-api.polymarket.com/v1/leaderboard?window=all&limit=20');
     state.traders = Array.isArray(lb) ? lb : (lb.data || lb.results || []);
     document.getElementById('m-traders').textContent = state.traders.length;
     renderTraders();
@@ -273,15 +278,16 @@ async function loadAll() {
     document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching positions…</div></div>';
 
     const wallets = state.traders.map(function(t) { return t.proxyWallet || t.address || t.user; }).filter(Boolean);
+
     await Promise.all(wallets.map(async function(w) {
       try {
-        const d = await apiFetch('https://data-api.polymarket.com/positions?user=' + w + '&sizeThreshold=5&limit=50');
+        const d = await apiFetch('https://data-api.polymarket.com/positions?user=' + w + '&sizeThreshold=1&limit=100');
         state.positions[w] = Array.isArray(d) ? d : [];
       } catch(e) { state.positions[w] = []; }
     }));
 
     const raw = buildConsensus();
-    document.getElementById('status-msg').textContent = 'Checking ' + raw.length + ' consensus markets for status…';
+    document.getElementById('status-msg').textContent = 'Checking ' + raw.length + ' markets for status…';
 
     const conditionIds = raw.map(function(m) { return m.cid; }).filter(Boolean);
     const marketDetails = await fetchMarketDetails(conditionIds);
