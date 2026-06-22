@@ -291,7 +291,7 @@ async function loadAll() {
       return Object.assign({}, m, { details: marketDetails[m.cid] || null });
     }).filter(function(m) {
       const d = m.details;
-      if (!d) return true;
+      if (!d) return false;
       if (d.closed || d.archived) return false;
       if (d.active === false) return false;
       if (d.acceptingOrders === false) return false;
