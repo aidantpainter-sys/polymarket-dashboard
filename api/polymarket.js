@@ -6,13 +6,14 @@ export default async function handler(req, res) {
   if (!endpoint) return res.status(400).json({ error: 'Missing endpoint param' });
 
   const allowed = [
-    'https://data-api.polymarket.com/leaderboard',
+    'https://data-api.polymarket.com/v1/leaderboard',
+    'https://data-api.polymarket.com/v1/positions',
     'https://data-api.polymarket.com/positions',
     'https://gamma-api.polymarket.com/markets',
   ];
 
   if (!allowed.some(a => endpoint.startsWith(a))) {
-    return res.status(403).json({ error: 'Endpoint not allowed' });
+    return res.status(403).json({ error: 'Endpoint not allowed', endpoint });
   }
 
   try {
@@ -32,7 +33,7 @@ export default async function handler(req, res) {
     try {
       data = JSON.parse(text);
     } catch {
-      return res.status(502).json({ error: 'Non-JSON response from Polymarket', raw: text.slice(0, 300) });
+      return res.status(502).json({ error: 'Non-JSON response', status: upstream.status, raw: text.slice(0, 500) });
     }
 
     res.status(200).json(data);
