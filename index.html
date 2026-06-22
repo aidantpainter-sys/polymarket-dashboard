@@ -105,7 +105,7 @@ button.refresh:hover { background: var(--bg2); }
   </div>
 
   <div id="view-traders" style="display:none;">
-    <div class="section-title">Top 20 traders of all time by profit</div>
+    <div class="section-title">Top 50 traders of all time by profit</div>
     <div class="traders-wrap" id="traders-list"><div class="loading"><div class="spinner"></div></div></div>
   </div>
 </div>
@@ -197,9 +197,9 @@ function renderTraders() {
   const el = document.getElementById('traders-list');
   if (!state.traders.length) { el.innerHTML = '<div style="font-size:13px;padding:1rem 0;color:#9e9e9b;">No data.</div>'; return; }
   el.innerHTML = state.traders.map(function(t, i) {
-    const name = t.name || t.pseudonym || t.userName || (t.proxyWallet || '').slice(0,8) + '…';
-    const pnl = t.pnl != null ? t.pnl : (t.profit != null ? t.profit : 0);
-    const vol = t.vol != null ? t.vol : (t.volume != null ? t.volume : 0);
+    const name = t.userName || t.name || t.pseudonym || (t.proxyWallet || '').slice(0,8) + '…';
+    const pnl = t.pnl != null ? t.pnl : 0;
+    const vol = t.vol != null ? t.vol : 0;
     return '<div class="trader-row">'
       + '<span class="rank">' + (i+1) + '</span>'
       + '<div class="avatar">' + initials(name) + '</div>'
@@ -270,7 +270,7 @@ async function loadAll() {
   state = { traders: [], positions: {} };
 
   try {
-    const lb = await apiFetch('https://data-api.polymarket.com/v1/leaderboard?window=all&limit=20');
+    const lb = await apiFetch('https://data-api.polymarket.com/v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=50');
     state.traders = Array.isArray(lb) ? lb : (lb.data || lb.results || []);
     document.getElementById('m-traders').textContent = state.traders.length;
     renderTraders();
