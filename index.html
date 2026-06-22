@@ -15,6 +15,7 @@
   --green: #0F6E56; --green-bg: #E1F5EE;
   --red: #993C1D; --red-bg: #FAECE7;
   --green-bar: #1D9E75; --red-bar: #D85A30;
+  --amber: #854F0B; --amber-bg: #FAEEDA;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -23,6 +24,7 @@
     --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
     --green: #5DCAA5; --green-bg: #04342C;
     --red: #F0997B; --red-bg: #4A1B0C;
+    --amber: #EF9F27; --amber-bg: #412402;
   }
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; padding: 1.5rem; }
@@ -40,17 +42,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 8px; }
 .consensus-card { border-left: 3px solid var(--green-bar); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
 .consensus-card.bearish { border-left-color: var(--red-bar); }
-.market-name { font-size: 14px; font-weight: 500; margin-bottom: 6px; line-height: 1.4; }
-.market-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); flex-wrap: wrap; }
+.market-name { font-size: 14px; font-weight: 500; margin-bottom: 8px; line-height: 1.4; }
+.market-name a { color: var(--text); text-decoration: none; }
+.market-name a:hover { text-decoration: underline; }
+.market-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); flex-wrap: wrap; margin-bottom: 8px; }
 .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
 .badge-yes { background: var(--green-bg); color: var(--green); }
 .badge-no { background: var(--red-bg); color: var(--red); }
 .badge-count { background: var(--bg2); color: var(--text2); border: 0.5px solid var(--border); }
+.badge-closes { background: var(--amber-bg); color: var(--amber); }
+.prices-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.price-block { background: var(--bg2); border-radius: var(--radius); padding: 8px 10px; }
+.price-block-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+.price-block-value { font-size: 18px; font-weight: 500; }
+.price-block-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
 .price-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--text2); }
 .bar-track { flex: 1; height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 3px; background: var(--green-bar); }
 .bar-fill.no { background: var(--red-bar); }
 .bar-label { font-size: 12px; font-weight: 500; min-width: 36px; text-align: right; color: var(--text); }
+.move-up { color: var(--green); font-size: 11px; }
+.move-down { color: var(--red); font-size: 11px; }
 .traders-wrap { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 0.25rem 1.25rem; }
 .trader-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
 .trader-row:last-child { border-bottom: none; }
@@ -63,6 +75,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--text2); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .error-box { background: var(--red-bg); border: 0.5px solid var(--red-bar); border-radius: var(--radius); padding: 1rem; font-size: 13px; color: var(--red); line-height: 1.6; }
+.status-msg { font-size: 12px; color: var(--text3); text-align: center; padding: 0.5rem 0 1rem; }
 button.refresh { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 5px 12px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: transparent; cursor: pointer; color: var(--text2); }
 button.refresh:hover { background: var(--bg2); }
 </style>
@@ -76,7 +89,7 @@ button.refresh:hover { background: var(--bg2); }
 
   <div class="metrics">
     <div class="metric"><div class="metric-label">Traders tracked</div><div class="metric-value" id="m-traders">—</div></div>
-    <div class="metric"><div class="metric-label">Consensus markets</div><div class="metric-value" id="m-consensus">—</div></div>
+    <div class="metric"><div class="metric-label">Open consensus</div><div class="metric-value" id="m-consensus">—</div></div>
     <div class="metric"><div class="metric-label">Last updated</div><div class="metric-value" id="m-updated" style="font-size:13px;padding-top:6px;">—</div></div>
   </div>
 
@@ -86,7 +99,8 @@ button.refresh:hover { background: var(--bg2); }
   </div>
 
   <div id="view-consensus">
-    <div class="section-title">Markets where 3+ top traders agree</div>
+    <div class="section-title">Open markets where 3+ top traders agree</div>
+    <div id="status-msg" class="status-msg"></div>
     <div id="consensus-list"><div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Loading…</div></div></div>
   </div>
 
@@ -117,15 +131,50 @@ function initials(name) {
   return (name || '?').split(/[\s_]/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '??';
 }
 
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr) - new Date();
+  const days = Math.ceil(diff / 86400000);
+  return days;
+}
+
+function closesLabel(dateStr) {
+  const d = daysUntil(dateStr);
+  if (d === null) return null;
+  if (d < 0) return 'ended';
+  if (d === 0) return 'closes today';
+  if (d === 1) return 'closes tomorrow';
+  return `closes in ${d}d`;
+}
+
 async function apiFetch(url) {
   const r = await fetch(API + encodeURIComponent(url));
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
+async function fetchMarketDetails(conditionIds) {
+  if (!conditionIds.length) return {};
+  const results = {};
+  const batchSize = 10;
+  for (let i = 0; i < conditionIds.length; i += batchSize) {
+    const batch = conditionIds.slice(i, i + batchSize);
+    try {
+      const url = `https://gamma-api.polymarket.com/markets?conditionIds=${batch.join(',')}&limit=50`;
+      const data = await apiFetch(url);
+      const arr = Array.isArray(data) ? data : (data.markets || []);
+      for (const m of arr) {
+        if (m.conditionId) results[m.conditionId] = m;
+      }
+    } catch {}
+  }
+  return results;
+}
+
 async function loadAll() {
   document.getElementById('m-traders').textContent = '…';
   document.getElementById('m-consensus').textContent = '…';
+  document.getElementById('status-msg').textContent = '';
   document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching leaderboard…</div></div>';
   document.getElementById('traders-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   state = { traders: [], positions: {} };
@@ -146,7 +195,26 @@ async function loadAll() {
       } catch { state.positions[w] = []; }
     }));
 
-    renderConsensus(buildConsensus());
+    const raw = buildConsensus();
+
+    document.getElementById('status-msg').textContent = `Checking ${raw.length} consensus markets for status…`;
+
+    const conditionIds = raw.map(m => m.cid).filter(Boolean);
+    const marketDetails = await fetchMarketDetails(conditionIds);
+
+    const enriched = raw.map(m => ({ ...m, details: marketDetails[m.cid] || null }))
+      .filter(m => {
+        if (!m.details) return true; // keep if we couldn't fetch details
+        const active = m.details.active;
+        const closed = m.details.closed;
+        const archived = m.details.archived;
+        if (closed || archived) return false;
+        if (active === false) return false;
+        return true;
+      });
+
+    document.getElementById('status-msg').textContent = '';
+    renderConsensus(enriched);
     document.getElementById('m-updated').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   } catch (err) {
     const msg = `<div class="error-box"><strong>Could not load data:</strong> ${err.message}</div>`;
@@ -161,9 +229,9 @@ function renderTraders() {
   const el = document.getElementById('traders-list');
   if (!state.traders.length) { el.innerHTML = '<div style="font-size:13px;padding:1rem 0;color:#9e9e9b;">No data.</div>'; return; }
   el.innerHTML = state.traders.map((t, i) => {
-    const name = t.name || t.pseudonym || (t.proxyWallet || '').slice(0,8) + '…';
+    const name = t.name || t.pseudonym || t.userName || (t.proxyWallet || '').slice(0,8) + '…';
     const pnl = t.pnl ?? t.profit ?? 0;
-    const vol = t.volume ?? 0;
+    const vol = t.vol ?? t.volume ?? 0;
     return `<div class="trader-row">
       <span class="rank">${i+1}</span>
       <div class="avatar">${initials(name)}</div>
@@ -182,7 +250,12 @@ function buildConsensus() {
     for (const pos of positions) {
       const cid = pos.conditionId || pos.market;
       if (!cid) continue;
-      if (!map[cid]) map[cid] = { yes: 0, no: 0, price: pos.curPrice ?? pos.price ?? 0.5, title: pos.title || pos.question || cid };
+      if (!map[cid]) map[cid] = {
+        yes: 0, no: 0,
+        entryPrice: pos.curPrice ?? pos.price ?? 0.5,
+        title: pos.title || pos.question || cid,
+        slug: pos.slug || null,
+      };
       const side = (pos.outcome || '').toLowerCase();
       if (side === 'yes') map[cid].yes++;
       else if (side === 'no') map[cid].no++;
@@ -198,24 +271,51 @@ function renderConsensus(items) {
   document.getElementById('m-consensus').textContent = items.length;
   const el = document.getElementById('consensus-list');
   if (!items.length) {
-    el.innerHTML = '<div style="font-size:13px;color:#9e9e9b;padding:1rem 0;">No consensus found — top traders may be spread across many markets right now.</div>';
+    el.innerHTML = '<div style="font-size:13px;color:#9e9e9b;padding:1rem 0;">No open consensus markets found right now.</div>';
     return;
   }
   el.innerHTML = items.map(m => {
     const isBull = m.yes >= m.no;
     const count = isBull ? m.yes : m.no;
-    const pct = Math.round((m.price || 0.5) * 100);
+    const d = m.details;
+
+    // Live price from Gamma API
+    const livePrice = d ? parseFloat(d.outcomePrices ? JSON.parse(d.outcomePrices)[0] : (d.price || m.entryPrice)) : m.entryPrice;
+    const entryPct = Math.round((m.entryPrice || 0.5) * 100);
+    const livePct = Math.round((livePrice || 0.5) * 100);
+    const move = livePct - entryPct;
+    const moveStr = move === 0 ? '' : move > 0
+      ? `<span class="move-up"><i class="ti ti-arrow-up" style="font-size:10px;"></i>${move}¢ since entry</span>`
+      : `<span class="move-down"><i class="ti ti-arrow-down" style="font-size:10px;"></i>${Math.abs(move)}¢ since entry</span>`;
+
+    const endDate = d?.endDate || d?.endDateIso || null;
+    const closes = closesLabel(endDate);
+    const marketUrl = m.slug ? `https://polymarket.com/event/${m.slug}` : null;
+
     return `<div class="card consensus-card ${isBull ? '' : 'bearish'}">
-      <div class="market-name">${m.title}</div>
+      <div class="market-name">${marketUrl ? `<a href="${marketUrl}" target="_blank">${m.title} <i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px;"></i></a>` : m.title}</div>
       <div class="market-meta">
         <span class="badge ${isBull ? 'badge-yes' : 'badge-no'}">${isBull ? 'YES' : 'NO'}</span>
         <span class="badge badge-count"><i class="ti ti-users" style="font-size:11px;vertical-align:-1px;"></i> ${count} traders agree</span>
-        <span style="margin-left:auto;">${pct}¢</span>
+        ${closes ? `<span class="badge badge-closes"><i class="ti ti-clock" style="font-size:11px;vertical-align:-1px;"></i> ${closes}</span>` : ''}
+        ${moveStr}
+      </div>
+      <div class="prices-row">
+        <div class="price-block">
+          <div class="price-block-label">Traders entered near</div>
+          <div class="price-block-value">${entryPct}¢</div>
+          <div class="price-block-sub">avg entry (YES)</div>
+        </div>
+        <div class="price-block">
+          <div class="price-block-label">Live price now</div>
+          <div class="price-block-value" style="color:${move > 2 ? 'var(--green)' : move < -2 ? 'var(--red)' : 'var(--text)'}">${livePct}¢</div>
+          <div class="price-block-sub">current market (YES)</div>
+        </div>
       </div>
       <div class="price-bar">
         <span>YES</span>
-        <div class="bar-track"><div class="bar-fill ${isBull ? '' : 'no'}" style="width:${pct}%"></div></div>
-        <span class="bar-label">${pct}%</span>
+        <div class="bar-track"><div class="bar-fill ${isBull ? '' : 'no'}" style="width:${livePct}%"></div></div>
+        <span class="bar-label">${livePct}%</span>
       </div>
     </div>`;
   }).join('');
