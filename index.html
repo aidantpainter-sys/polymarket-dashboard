@@ -131,25 +131,19 @@ function initials(name) {
   return (name || '?').split(/[\s_]/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '??';
 }
 
-function daysUntil(dateStr) {
+function closesLabel(dateStr) {
   if (!dateStr) return null;
   const diff = new Date(dateStr) - new Date();
   const days = Math.ceil(diff / 86400000);
-  return days;
-}
-
-function closesLabel(dateStr) {
-  const d = daysUntil(dateStr);
-  if (d === null) return null;
-  if (d < 0) return 'ended';
-  if (d === 0) return 'closes today';
-  if (d === 1) return 'closes tomorrow';
-  return `closes in ${d}d`;
+  if (days < 0) return null;
+  if (days === 0) return 'closes today';
+  if (days === 1) return 'closes tomorrow';
+  return 'closes in ' + days + 'd';
 }
 
 async function apiFetch(url) {
   const r = await fetch(API + encodeURIComponent(url));
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
 
@@ -160,88 +154,15 @@ async function fetchMarketDetails(conditionIds) {
   for (let i = 0; i < conditionIds.length; i += batchSize) {
     const batch = conditionIds.slice(i, i + batchSize);
     try {
-      const url = `https://gamma-api.polymarket.com/markets?conditionIds=${batch.join(',')}&limit=50`;
+      const url = 'https://gamma-api.polymarket.com/markets?conditionIds=' + batch.join(',') + '&limit=50';
       const data = await apiFetch(url);
       const arr = Array.isArray(data) ? data : (data.markets || []);
       for (const m of arr) {
         if (m.conditionId) results[m.conditionId] = m;
       }
-    } catch {}
+    } catch(e) {}
   }
   return results;
-}
-
-async function loadAll() {
-  document.getElementById('m-traders').textContent = '…';
-  document.getElementById('m-consensus').textContent = '…';
-  document.getElementById('status-msg').textContent = '';
-  document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching leaderboard…</div></div>';
-  document.getElementById('traders-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  state = { traders: [], positions: {} };
-
-  try {
-    const lb = await apiFetch('https://data-api.polymarket.com/v1/leaderboard?limit=20');
-    state.traders = Array.isArray(lb) ? lb : (lb.data || lb.results || []);
-    document.getElementById('m-traders').textContent = state.traders.length;
-    renderTraders();
-
-    document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching positions…</div></div>';
-
-    const wallets = state.traders.map(t => t.proxyWallet || t.address || t.user).filter(Boolean);
-    await Promise.all(wallets.map(async w => {
-      try {
-        const d = await apiFetch(`https://data-api.polymarket.com/positions?user=${w}&sizeThreshold=5&limit=50`);
-        state.positions[w] = Array.isArray(d) ? d : [];
-      } catch { state.positions[w] = []; }
-    }));
-
-    const raw = buildConsensus();
-
-    document.getElementById('status-msg').textContent = `Checking ${raw.length} consensus markets for status…`;
-
-    const conditionIds = raw.map(m => m.cid).filter(Boolean);
-    const marketDetails = await fetchMarketDetails(conditionIds);
-
-    const enriched = raw.map(m => ({ ...m, details: marketDetails[m.cid] || null }))
-      .filter(m => {
-        if (!m.details) return true; // keep if we couldn't fetch details
-        const active = m.details.active;
-        const closed = m.details.closed;
-        const archived = m.details.archived;
-        if (closed || archived) return false;
-        if (active === false) return false;
-        return true;
-      });
-
-    document.getElementById('status-msg').textContent = '';
-    renderConsensus(enriched);
-    document.getElementById('m-updated').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  } catch (err) {
-    const msg = `<div class="error-box"><strong>Could not load data:</strong> ${err.message}</div>`;
-    document.getElementById('consensus-list').innerHTML = msg;
-    document.getElementById('traders-list').innerHTML = msg;
-    document.getElementById('m-traders').textContent = '—';
-    document.getElementById('m-consensus').textContent = '—';
-  }
-}
-
-function renderTraders() {
-  const el = document.getElementById('traders-list');
-  if (!state.traders.length) { el.innerHTML = '<div style="font-size:13px;padding:1rem 0;color:#9e9e9b;">No data.</div>'; return; }
-  el.innerHTML = state.traders.map((t, i) => {
-    const name = t.name || t.pseudonym || t.userName || (t.proxyWallet || '').slice(0,8) + '…';
-    const pnl = t.pnl ?? t.profit ?? 0;
-    const vol = t.vol ?? t.volume ?? 0;
-    return `<div class="trader-row">
-      <span class="rank">${i+1}</span>
-      <div class="avatar">${initials(name)}</div>
-      <span class="trader-name">${name}</span>
-      <div style="text-align:right;">
-        <div class="trader-pnl">${pnl >= 0 ? '+' : ''}${fmt(pnl)}</div>
-        <div class="trader-vol">${fmt(vol)} vol</div>
-      </div>
-    </div>`;
-  }).join('');
 }
 
 function buildConsensus() {
@@ -267,6 +188,24 @@ function buildConsensus() {
     .sort((a, b) => Math.max(b.yes, b.no) - Math.max(a.yes, a.no));
 }
 
+function renderTraders() {
+  const el = document.getElementById('traders-list');
+  if (!state.traders.length) { el.innerHTML = '<div style="font-size:13px;padding:1rem 0;color:#9e9e9b;">No data.</div>'; return; }
+  el.innerHTML = state.traders.map((t, i) => {
+    const name = t.name || t.pseudonym || t.userName || (t.proxyWallet || '').slice(0,8) + '…';
+    const pnl = t.pnl ?? t.profit ?? 0;
+    const vol = t.vol ?? t.volume ?? 0;
+    return '<div class="trader-row">'
+      + '<span class="rank">' + (i+1) + '</span>'
+      + '<div class="avatar">' + initials(name) + '</div>'
+      + '<span class="trader-name">' + name + '</span>'
+      + '<div style="text-align:right;">'
+      + '<div class="trader-pnl">' + (pnl >= 0 ? '+' : '') + fmt(pnl) + '</div>'
+      + '<div class="trader-vol">' + fmt(vol) + ' vol</div>'
+      + '</div></div>';
+  }).join('');
+}
+
 function renderConsensus(items) {
   document.getElementById('m-consensus').textContent = items.length;
   const el = document.getElementById('consensus-list');
@@ -274,51 +213,104 @@ function renderConsensus(items) {
     el.innerHTML = '<div style="font-size:13px;color:#9e9e9b;padding:1rem 0;">No open consensus markets found right now.</div>';
     return;
   }
-  el.innerHTML = items.map(m => {
+  el.innerHTML = items.map(function(m) {
     const isBull = m.yes >= m.no;
     const count = isBull ? m.yes : m.no;
     const d = m.details;
 
-    // Live price from Gamma API
-    const livePrice = d ? parseFloat(d.outcomePrices ? JSON.parse(d.outcomePrices)[0] : (d.price || m.entryPrice)) : m.entryPrice;
+    let livePrice = m.entryPrice;
+    if (d && d.outcomePrices) {
+      try { livePrice = parseFloat(JSON.parse(d.outcomePrices)[0]); } catch(e) {}
+    } else if (d && d.lastTradePrice) {
+      livePrice = parseFloat(d.lastTradePrice);
+    }
+
     const entryPct = Math.round((m.entryPrice || 0.5) * 100);
     const livePct = Math.round((livePrice || 0.5) * 100);
     const move = livePct - entryPct;
-    const moveStr = move === 0 ? '' : move > 0
-      ? `<span class="move-up"><i class="ti ti-arrow-up" style="font-size:10px;"></i>${move}¢ since entry</span>`
-      : `<span class="move-down"><i class="ti ti-arrow-down" style="font-size:10px;"></i>${Math.abs(move)}¢ since entry</span>`;
+    let moveStr = '';
+    if (move > 0) moveStr = '<span class="move-up"><i class="ti ti-arrow-up" style="font-size:10px;"></i>' + move + '¢ since entry</span>';
+    else if (move < 0) moveStr = '<span class="move-down"><i class="ti ti-arrow-down" style="font-size:10px;"></i>' + Math.abs(move) + '¢ since entry</span>';
 
-    const endDate = d?.endDate || d?.endDateIso || null;
+    const endDate = d && (d.endDate || d.endDateIso) || null;
     const closes = closesLabel(endDate);
-    const marketUrl = m.slug ? `https://polymarket.com/event/${m.slug}` : null;
+    const marketUrl = m.slug ? 'https://polymarket.com/event/' + m.slug : null;
+    const priceColor = move > 2 ? 'var(--green)' : move < -2 ? 'var(--red)' : 'var(--text)';
 
-    return `<div class="card consensus-card ${isBull ? '' : 'bearish'}">
-      <div class="market-name">${marketUrl ? `<a href="${marketUrl}" target="_blank">${m.title} <i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px;"></i></a>` : m.title}</div>
-      <div class="market-meta">
-        <span class="badge ${isBull ? 'badge-yes' : 'badge-no'}">${isBull ? 'YES' : 'NO'}</span>
-        <span class="badge badge-count"><i class="ti ti-users" style="font-size:11px;vertical-align:-1px;"></i> ${count} traders agree</span>
-        ${closes ? `<span class="badge badge-closes"><i class="ti ti-clock" style="font-size:11px;vertical-align:-1px;"></i> ${closes}</span>` : ''}
-        ${moveStr}
-      </div>
-      <div class="prices-row">
-        <div class="price-block">
-          <div class="price-block-label">Traders entered near</div>
-          <div class="price-block-value">${entryPct}¢</div>
-          <div class="price-block-sub">avg entry (YES)</div>
-        </div>
-        <div class="price-block">
-          <div class="price-block-label">Live price now</div>
-          <div class="price-block-value" style="color:${move > 2 ? 'var(--green)' : move < -2 ? 'var(--red)' : 'var(--text)'}">${livePct}¢</div>
-          <div class="price-block-sub">current market (YES)</div>
-        </div>
-      </div>
-      <div class="price-bar">
-        <span>YES</span>
-        <div class="bar-track"><div class="bar-fill ${isBull ? '' : 'no'}" style="width:${livePct}%"></div></div>
-        <span class="bar-label">${livePct}%</span>
-      </div>
-    </div>`;
+    return '<div class="card consensus-card' + (isBull ? '' : ' bearish') + '">'
+      + '<div class="market-name">'
+      + (marketUrl ? '<a href="' + marketUrl + '" target="_blank">' + m.title + ' <i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px;"></i></a>' : m.title)
+      + '</div>'
+      + '<div class="market-meta">'
+      + '<span class="badge ' + (isBull ? 'badge-yes' : 'badge-no') + '">' + (isBull ? 'YES' : 'NO') + '</span>'
+      + '<span class="badge badge-count"><i class="ti ti-users" style="font-size:11px;vertical-align:-1px;"></i> ' + count + ' traders agree</span>'
+      + (closes ? '<span class="badge badge-closes"><i class="ti ti-clock" style="font-size:11px;vertical-align:-1px;"></i> ' + closes + '</span>' : '')
+      + moveStr
+      + '</div>'
+      + '<div class="prices-row">'
+      + '<div class="price-block"><div class="price-block-label">Traders entered near</div><div class="price-block-value">' + entryPct + '¢</div><div class="price-block-sub">avg entry (YES)</div></div>'
+      + '<div class="price-block"><div class="price-block-label">Live price now</div><div class="price-block-value" style="color:' + priceColor + '">' + livePct + '¢</div><div class="price-block-sub">current market (YES)</div></div>'
+      + '</div>'
+      + '<div class="price-bar"><span>YES</span><div class="bar-track"><div class="bar-fill' + (isBull ? '' : ' no') + '" style="width:' + livePct + '%"></div></div><span class="bar-label">' + livePct + '%</span></div>'
+      + '</div>';
   }).join('');
+}
+
+async function loadAll() {
+  document.getElementById('m-traders').textContent = '…';
+  document.getElementById('m-consensus').textContent = '…';
+  document.getElementById('status-msg').textContent = '';
+  document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching leaderboard…</div></div>';
+  document.getElementById('traders-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  state = { traders: [], positions: {} };
+
+  try {
+    const lb = await apiFetch('https://data-api.polymarket.com/v1/leaderboard?limit=20');
+    state.traders = Array.isArray(lb) ? lb : (lb.data || lb.results || []);
+    document.getElementById('m-traders').textContent = state.traders.length;
+    renderTraders();
+
+    document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching positions…</div></div>';
+
+    const wallets = state.traders.map(function(t) { return t.proxyWallet || t.address || t.user; }).filter(Boolean);
+    await Promise.all(wallets.map(async function(w) {
+      try {
+        const d = await apiFetch('https://data-api.polymarket.com/positions?user=' + w + '&sizeThreshold=5&limit=50');
+        state.positions[w] = Array.isArray(d) ? d : [];
+      } catch(e) { state.positions[w] = []; }
+    }));
+
+    const raw = buildConsensus();
+    document.getElementById('status-msg').textContent = 'Checking ' + raw.length + ' consensus markets for status…';
+
+    const conditionIds = raw.map(function(m) { return m.cid; }).filter(Boolean);
+    const marketDetails = await fetchMarketDetails(conditionIds);
+
+    const now = new Date();
+    const enriched = raw.map(function(m) {
+      return Object.assign({}, m, { details: marketDetails[m.cid] || null });
+    }).filter(function(m) {
+      const d = m.details;
+      if (!d) return true;
+      if (d.closed || d.archived) return false;
+      if (d.active === false) return false;
+      if (d.acceptingOrders === false) return false;
+      if (d.endDate && new Date(d.endDate) < now) return false;
+      const ltp = parseFloat(d.lastTradePrice || 0.5);
+      if (ltp <= 0.01 || ltp >= 0.99) return false;
+      return true;
+    });
+
+    document.getElementById('status-msg').textContent = '';
+    renderConsensus(enriched);
+    document.getElementById('m-updated').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  } catch(err) {
+    const msg = '<div class="error-box"><strong>Could not load data:</strong> ' + err.message + '</div>';
+    document.getElementById('consensus-list').innerHTML = msg;
+    document.getElementById('traders-list').innerHTML = msg;
+    document.getElementById('m-traders').textContent = '—';
+    document.getElementById('m-consensus').textContent = '—';
+  }
 }
 
 loadAll();
