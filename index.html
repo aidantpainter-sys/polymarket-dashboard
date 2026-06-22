@@ -131,7 +131,7 @@ async function loadAll() {
   state = { traders: [], positions: {} };
 
   try {
-    const lb = await apiFetch('https://data-api.polymarket.com/leaderboard?window=1m&limit=20');
+    const lb = await apiFetch('https://data-api.polymarket.com/v1/leaderboard?limit=20');
     state.traders = Array.isArray(lb) ? lb : (lb.data || lb.results || []);
     document.getElementById('m-traders').textContent = state.traders.length;
     renderTraders();
