@@ -221,8 +221,10 @@ async function fetchMarketDetails(conditionIds) {
 
 async function fetchAIAnalysis(items) {
   if (!items.length) return {};
-  try {
-    const payload = items.map(function(m, i) {
+  const aiMap = {};
+
+  await Promise.all(items.map(async function(m, i) {
+    try {
       const isBull = m.yes >= m.no;
       const d = m.details;
       let livePrice = m.entryPrice;
@@ -231,8 +233,9 @@ async function fetchAIAnalysis(items) {
       const entryPct = Math.round((m.entryPrice || 0.5) * 100);
       const livePct = Math.round((livePrice || 0.5) * 100);
       const endDate = d && (d.endDate || d.endDateIso) || null;
-      return {
-        index: i + 1,
+
+      const payload = [{
+        index: 1,
         title: m.title,
         isBull: isBull,
         count: isBull ? m.yes : m.no,
@@ -240,21 +243,26 @@ async function fetchAIAnalysis(items) {
         livePct: livePct,
         move: livePct - entryPct,
         closes: closesLabel(endDate),
-      };
-    });
+      }];
 
-    const r = await fetch('/api/polymarket', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ markets: payload }),
-    });
-    const data = await r.json();
-    const map = {};
-    if (Array.isArray(data)) {
-      data.forEach(function(d) { map[d.index - 1] = d; });
+      const r = await fetch('/api/polymarket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markets: payload }),
+      });
+      const data = await r.json();
+      if (Array.isArray(data) && data[0]) {
+        aiMap[i] = data[0];
+        // Re-render as each one comes in
+        const filtered = filterByCategory(state.allConsensus);
+        renderConsensus(filtered, aiMap);
+      }
+    } catch(e) {
+      aiMap[i] = { confidence: 'Low', reasoning: 'Analysis unavailable.' };
     }
-    return map;
-  } catch(e) { return {}; }
+  }));
+
+  return aiMap;
 }
 
 function buildConsensus() {
