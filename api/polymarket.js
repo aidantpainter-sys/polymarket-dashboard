@@ -16,32 +16,21 @@ export default async function handler(req, res) {
       const { markets } = req.body;
       if (!markets || !markets.length) return res.status(400).json({ error: 'No markets provided' });
 
-      const prompt = `You are an expert prediction market analyst. Analyze the following consensus trades from Polymarket's top 50 all-time traders and provide a confidence assessment for each.
+      const m = markets[0];
+      const prompt = `You are an expert prediction market analyst. Analyze this single consensus trade from Polymarket's top 50 all-time traders.
 
-For each market, consider:
-1. How many top traders agree (out of 50 tracked)
-2. The direction (YES/NO) and current market price
-3. Whether the price has moved significantly since traders entered (suggesting smart money moved it)
-4. The nature of the market (politics, sports, crypto, etc.) and how predictable it is
+Market: "${m.title}"
+- Direction: ${m.isBull ? 'YES' : 'NO'}
+- Traders agreeing: ${m.count} out of 50
+- Avg entry price: ${m.entryPct}¢
+- Current live price: ${m.livePct}¢
+- Price movement since entry: ${m.move > 0 ? '+' : ''}${m.move}¢
+- Closes: ${m.closes || 'unknown'}
 
-Markets to analyze:
-${markets.map((m, i) => `
-${i+1}. "${m.title}"
-   - Direction: ${m.isBull ? 'YES' : 'NO'}
-   - Traders agreeing: ${m.count} out of 50
-   - Avg entry price: ${m.entryPct}¢
-   - Current live price: ${m.livePct}¢
-   - Price movement since entry: ${m.move > 0 ? '+' : ''}${m.move}¢
-   - Closes: ${m.closes || 'unknown'}
-`).join('')}
+Consider: number of top traders agreeing, price movement since entry (smart money signal), and market predictability.
 
-Respond ONLY with a valid JSON array, no markdown, no explanation, just the array. Each object must have:
-- "index": number (1-based, matching the market number above)
-- "confidence": string, one of: "Low", "Medium", "High", "Very High"
-- "reasoning": string, 1-2 sentences max explaining the confidence level
-
-Example format:
-[{"index":1,"confidence":"High","reasoning":"5 top traders agree with strong position sizes. Price has moved 12¢ since entry suggesting smart money led the market."}]`;
+Respond ONLY with a single JSON object, no markdown:
+{"confidence":"High","reasoning":"1-2 sentences explaining the rating."}`;
 
       const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -63,9 +52,9 @@ Example format:
       try {
         parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
       } catch {
-        parsed = [];
+        parsed = { confidence: 'Low', reasoning: 'Analysis unavailable.' };
       }
-      return res.status(200).json(parsed);
+      return res.status(200).json([{ index: 1, ...parsed }]);
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
