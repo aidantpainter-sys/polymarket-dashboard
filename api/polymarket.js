@@ -5,6 +5,11 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  // Debug: confirm API key is present
+  if (req.query.debug === '1') {
+    return res.status(200).json({ hasKey: !!process.env.ANTHROPIC_API_KEY, keyPrefix: process.env.ANTHROPIC_API_KEY?.slice(0,10) });
+  }
+
   // POST = AI analysis request
   if (req.method === 'POST') {
     try {
