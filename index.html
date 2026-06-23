@@ -251,9 +251,8 @@ async function fetchAIAnalysis(items) {
         body: JSON.stringify({ markets: payload }),
       });
       const data = await r.json();
-      if (Array.isArray(data) && data[0]) {
-        aiMap[i] = data[0];
-        // Re-render as each one comes in
+      if (data && data.confidence) {
+        aiMap[i] = data;
         const filtered = filterByCategory(state.allConsensus);
         renderConsensus(filtered, aiMap);
       }
