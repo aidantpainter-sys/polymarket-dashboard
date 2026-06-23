@@ -16,6 +16,8 @@
   --red: #993C1D; --red-bg: #FAECE7;
   --green-bar: #1D9E75; --red-bar: #D85A30;
   --amber: #854F0B; --amber-bg: #FAEEDA;
+  --blue: #1a56db; --blue-bg: #EBF5FF;
+  --purple: #6B21A8; --purple-bg: #F3E8FF;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -25,6 +27,8 @@
     --green: #5DCAA5; --green-bg: #04342C;
     --red: #F0997B; --red-bg: #4A1B0C;
     --amber: #EF9F27; --amber-bg: #412402;
+    --blue: #60A5FA; --blue-bg: #1E3A5F;
+    --purple: #C084FC; --purple-bg: #3B1F6E;
   }
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; padding: 1.5rem; }
@@ -35,9 +39,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .metric { background: var(--bg2); border-radius: var(--radius); padding: 1rem; }
 .metric-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
 .metric-value { font-size: 22px; font-weight: 500; }
-.tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+.tabs { display: flex; gap: 8px; margin-bottom: 1rem; }
 .tab { padding: 6px 16px; font-size: 13px; border-radius: var(--radius); border: 0.5px solid var(--border2); background: transparent; cursor: pointer; color: var(--text2); }
 .tab.active { background: var(--bg2); color: var(--text); font-weight: 500; }
+.cat-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.cat-btn { padding: 4px 12px; font-size: 12px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; cursor: pointer; color: var(--text2); }
+.cat-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 .section-title { font-size: 12px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
 .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 8px; }
 .consensus-card { border-left: 3px solid var(--green-bar); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
@@ -51,6 +58,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .badge-no { background: var(--red-bg); color: var(--red); }
 .badge-count { background: var(--bg2); color: var(--text2); border: 0.5px solid var(--border); }
 .badge-closes { background: var(--amber-bg); color: var(--amber); }
+.confidence-low { background: var(--bg2); color: var(--text2); border: 0.5px solid var(--border); }
+.confidence-medium { background: var(--blue-bg); color: var(--blue); }
+.confidence-high { background: var(--green-bg); color: var(--green); }
+.confidence-veryhigh { background: var(--purple-bg); color: var(--purple); }
+.ai-reasoning { font-size: 12px; color: var(--text2); background: var(--bg2); border-radius: var(--radius); padding: 8px 10px; margin-top: 8px; line-height: 1.5; border-left: 2px solid var(--border2); }
+.ai-reasoning-loading { font-size: 12px; color: var(--text3); font-style: italic; margin-top: 8px; }
 .prices-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .price-block { background: var(--bg2); border-radius: var(--radius); padding: 8px 10px; }
 .price-block-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
@@ -99,6 +112,15 @@ button.refresh:hover { background: var(--bg2); }
   </div>
 
   <div id="view-consensus">
+    <div class="cat-filters">
+      <button class="cat-btn active" onclick="setCategory('ALL',this)">All</button>
+      <button class="cat-btn" onclick="setCategory('POLITICS',this)">Politics</button>
+      <button class="cat-btn" onclick="setCategory('CRYPTO',this)">Crypto</button>
+      <button class="cat-btn" onclick="setCategory('SPORTS',this)">Sports</button>
+      <button class="cat-btn" onclick="setCategory('ECONOMICS',this)">Economics</button>
+      <button class="cat-btn" onclick="setCategory('TECH',this)">Tech</button>
+      <button class="cat-btn" onclick="setCategory('CULTURE',this)">Culture</button>
+    </div>
     <div class="section-title">Open markets where 2+ all-time top traders agree</div>
     <div id="status-msg" class="status-msg"></div>
     <div id="consensus-list"><div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Loading…</div></div></div>
@@ -112,13 +134,38 @@ button.refresh:hover { background: var(--bg2); }
 
 <script>
 const API = '/api/polymarket?endpoint=';
-let state = { traders: [], positions: {} };
+const CATEGORIES = ['ALL','POLITICS','CRYPTO','SPORTS','ECONOMICS','TECH','CULTURE'];
+let state = { traders: [], positions: {}, allConsensus: [] };
+let activeCategory = 'ALL';
 
 function switchTab(name, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
   btn.classList.add('active');
   document.getElementById('view-consensus').style.display = name === 'consensus' ? 'block' : 'none';
   document.getElementById('view-traders').style.display = name === 'traders' ? 'block' : 'none';
+}
+
+function setCategory(cat, btn) {
+  activeCategory = cat;
+  document.querySelectorAll('.cat-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  if (state.allConsensus.length) renderConsensus(filterByCategory(state.allConsensus));
+  else loadAll();
+}
+
+function filterByCategory(items) {
+  if (activeCategory === 'ALL') return items;
+  return items.filter(function(m) {
+    const t = (m.title || '').toLowerCase();
+    const cat = activeCategory.toLowerCase();
+    if (cat === 'politics') return /election|president|senate|congress|vote|trump|biden|harris|democrat|republican|minister|government|party|poll/.test(t);
+    if (cat === 'crypto') return /bitcoin|btc|eth|ethereum|crypto|token|defi|solana|coin|blockchain/.test(t);
+    if (cat === 'sports') return /win|champion|cup|league|nfl|nba|mlb|nhl|fifa|soccer|football|basketball|baseball|tennis|golf|ufc|mma|match|game|tournament|series/.test(t);
+    if (cat === 'economics') return /gdp|inflation|fed|rate|recession|economy|market|stock|oil|gold|dollar|interest/.test(t);
+    if (cat === 'tech') return /ai|openai|google|apple|microsoft|meta|tesla|spacex|tech|model|gpt|launch/.test(t);
+    if (cat === 'culture') return /oscar|grammy|award|movie|film|show|celebrity|music|album|tv/.test(t);
+    return true;
+  });
 }
 
 function fmt(n) {
@@ -141,6 +188,15 @@ function closesLabel(dateStr) {
   return 'closes in ' + days + 'd';
 }
 
+function confidenceClass(c) {
+  if (!c) return 'confidence-low';
+  const lower = c.toLowerCase().replace(/\s/g,'');
+  if (lower === 'veryhigh') return 'confidence-veryhigh';
+  if (lower === 'high') return 'confidence-high';
+  if (lower === 'medium') return 'confidence-medium';
+  return 'confidence-low';
+}
+
 async function apiFetch(url) {
   const r = await fetch(API + encodeURIComponent(url));
   if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -157,12 +213,48 @@ async function fetchMarketDetails(conditionIds) {
       const url = 'https://gamma-api.polymarket.com/markets?conditionIds=' + batch.join(',') + '&active=true&closed=false&limit=50';
       const data = await apiFetch(url);
       const arr = Array.isArray(data) ? data : (data.markets || []);
-      for (const m of arr) {
-        if (m.conditionId) results[m.conditionId] = m;
-      }
+      for (const m of arr) { if (m.conditionId) results[m.conditionId] = m; }
     } catch(e) {}
   }
   return results;
+}
+
+async function fetchAIAnalysis(items) {
+  if (!items.length) return {};
+  try {
+    const payload = items.map(function(m, i) {
+      const isBull = m.yes >= m.no;
+      const d = m.details;
+      let livePrice = m.entryPrice;
+      if (d && d.outcomePrices) { try { livePrice = parseFloat(JSON.parse(d.outcomePrices)[0]); } catch(e) {} }
+      else if (d && d.lastTradePrice) { livePrice = parseFloat(d.lastTradePrice); }
+      const entryPct = Math.round((m.entryPrice || 0.5) * 100);
+      const livePct = Math.round((livePrice || 0.5) * 100);
+      const endDate = d && (d.endDate || d.endDateIso) || null;
+      return {
+        index: i + 1,
+        title: m.title,
+        isBull: isBull,
+        count: isBull ? m.yes : m.no,
+        entryPct: entryPct,
+        livePct: livePct,
+        move: livePct - entryPct,
+        closes: closesLabel(endDate),
+      };
+    });
+
+    const r = await fetch('/api/polymarket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markets: payload }),
+    });
+    const data = await r.json();
+    const map = {};
+    if (Array.isArray(data)) {
+      data.forEach(function(d) { map[d.index - 1] = d; });
+    }
+    return map;
+  } catch(e) { return {}; }
 }
 
 function buildConsensus() {
@@ -211,24 +303,22 @@ function renderTraders() {
   }).join('');
 }
 
-function renderConsensus(items) {
+function renderConsensus(items, aiMap) {
+  aiMap = aiMap || {};
   document.getElementById('m-consensus').textContent = items.length;
   const el = document.getElementById('consensus-list');
   if (!items.length) {
-    el.innerHTML = '<div style="font-size:13px;color:#9e9e9b;padding:1rem 0;">No open consensus markets found right now.</div>';
+    el.innerHTML = '<div style="font-size:13px;color:#9e9e9b;padding:1rem 0;">No open consensus markets found for this category right now.</div>';
     return;
   }
-  el.innerHTML = items.map(function(m) {
+  el.innerHTML = items.map(function(m, i) {
     const isBull = m.yes >= m.no;
     const count = isBull ? m.yes : m.no;
     const d = m.details;
 
     let livePrice = m.entryPrice;
-    if (d && d.outcomePrices) {
-      try { livePrice = parseFloat(JSON.parse(d.outcomePrices)[0]); } catch(e) {}
-    } else if (d && d.lastTradePrice) {
-      livePrice = parseFloat(d.lastTradePrice);
-    }
+    if (d && d.outcomePrices) { try { livePrice = parseFloat(JSON.parse(d.outcomePrices)[0]); } catch(e) {} }
+    else if (d && d.lastTradePrice) { livePrice = parseFloat(d.lastTradePrice); }
 
     const entryPct = Math.round((m.entryPrice || 0.5) * 100);
     const livePct = Math.round((livePrice || 0.5) * 100);
@@ -242,6 +332,13 @@ function renderConsensus(items) {
     const marketUrl = m.slug ? 'https://polymarket.com/event/' + m.slug : null;
     const priceColor = move > 2 ? 'var(--green)' : move < -2 ? 'var(--red)' : 'var(--text)';
 
+    const ai = aiMap[i];
+    const confClass = ai ? confidenceClass(ai.confidence) : '';
+    const confBadge = ai
+      ? '<span class="badge ' + confClass + '"><i class="ti ti-brain" style="font-size:10px;vertical-align:-1px;"></i> ' + ai.confidence + ' confidence</span>'
+      : '<span class="ai-reasoning-loading"><i class="ti ti-loader" style="font-size:10px;"></i> Analyzing…</span>';
+    const reasoning = ai ? '<div class="ai-reasoning"><i class="ti ti-sparkles" style="font-size:11px;vertical-align:-1px;margin-right:4px;"></i>' + ai.reasoning + '</div>' : '';
+
     return '<div class="card consensus-card' + (isBull ? '' : ' bearish') + '">'
       + '<div class="market-name">'
       + (marketUrl ? '<a href="' + marketUrl + '" target="_blank">' + m.title + ' <i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px;"></i></a>' : m.title)
@@ -250,6 +347,7 @@ function renderConsensus(items) {
       + '<span class="badge ' + (isBull ? 'badge-yes' : 'badge-no') + '">' + (isBull ? 'YES' : 'NO') + '</span>'
       + '<span class="badge badge-count"><i class="ti ti-users" style="font-size:11px;vertical-align:-1px;"></i> ' + count + ' traders agree</span>'
       + (closes ? '<span class="badge badge-closes"><i class="ti ti-clock" style="font-size:11px;vertical-align:-1px;"></i> ' + closes + '</span>' : '')
+      + confBadge
       + moveStr
       + '</div>'
       + '<div class="prices-row">'
@@ -257,6 +355,7 @@ function renderConsensus(items) {
       + '<div class="price-block"><div class="price-block-label">Live price now</div><div class="price-block-value" style="color:' + priceColor + '">' + livePct + '¢</div><div class="price-block-sub">current market (YES)</div></div>'
       + '</div>'
       + '<div class="price-bar"><span>YES</span><div class="bar-track"><div class="bar-fill' + (isBull ? '' : ' no') + '" style="width:' + livePct + '%"></div></div><span class="bar-label">' + livePct + '%</span></div>'
+      + reasoning
       + '</div>';
   }).join('');
 }
@@ -267,7 +366,7 @@ async function loadAll() {
   document.getElementById('status-msg').textContent = '';
   document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching leaderboard…</div></div>';
   document.getElementById('traders-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  state = { traders: [], positions: {} };
+  state = { traders: [], positions: {}, allConsensus: [] };
 
   try {
     const lb = await apiFetch('https://data-api.polymarket.com/v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=50');
@@ -278,7 +377,6 @@ async function loadAll() {
     document.getElementById('consensus-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:#9e9e9b;">Fetching positions…</div></div>';
 
     const wallets = state.traders.map(function(t) { return t.proxyWallet || t.address || t.user; }).filter(Boolean);
-
     await Promise.all(wallets.map(async function(w) {
       try {
         const d = await apiFetch('https://data-api.polymarket.com/positions?user=' + w + '&sizeThreshold=1&limit=100');
@@ -307,8 +405,15 @@ async function loadAll() {
       return true;
     });
 
+    state.allConsensus = enriched;
+    const filtered = filterByCategory(enriched);
+
+    document.getElementById('status-msg').textContent = 'Running AI analysis…';
+    renderConsensus(filtered, {});
+
+    const aiMap = await fetchAIAnalysis(filtered);
     document.getElementById('status-msg').textContent = '';
-    renderConsensus(enriched);
+    renderConsensus(filtered, aiMap);
     document.getElementById('m-updated').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   } catch(err) {
     const msg = '<div class="error-box"><strong>Could not load data:</strong> ' + err.message + '</div>';
