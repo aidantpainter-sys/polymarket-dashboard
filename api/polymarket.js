@@ -58,12 +58,12 @@ confidence must be one of: Low, Medium, High, Very High`;
       }
 
       if (!parsed.confidence || !parsed.reasoning) {
-        parsed = { confidence: 'Low', reasoning: 'Analysis unavailable.' };
+        parsed = { confidence: 'Low', reasoning: 'Bad parse: ' + text.slice(0, 100) };
       }
 
       return res.status(200).json({ index: 1, confidence: parsed.confidence, reasoning: parsed.reasoning });
     } catch (err) {
-      return res.status(200).json({ index: 1, confidence: 'Low', reasoning: 'Analysis unavailable.' });
+      return res.status(200).json({ index: 1, confidence: 'Low', reasoning: 'Error: ' + err.message });
     }
   }
 
